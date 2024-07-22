@@ -1,56 +1,47 @@
+// routes/auth.js
 const express = require("express");
-const passport = require("passport");
+const { OAuth2Client } = require("google-auth-library");
+const db = require("../../db");
+
 const router = express.Router();
+const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
-const GoogleStrategy = require("passport-google-oauth20").Strategy;
+router.post("/verify-token", async (req, res) => {
+  const { token } = req.body;
 
-passport.use(
-  new GoogleStrategy(
-    {
-      clientID: process.env.GOOGLE_CLIENT_ID,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      callbackURL: "/auth/google/callback",
-    },
-    async (accessToken, refreshToken, profile, done) => {
-      // Check if user already exists in our db
-      const existingUser = await db.execute(
-        "SELECT * FROM users WHERE id = ?",
-        [profile.id]
-      );
-      if (existingUser.rows.length > 0) {
-        // User already exists
-        return done(null, existingUser.rows[0]);
-      }
+  if (!token) {
+    return res.status(400).json({ message: "Token is required" });
+  }
 
-      // If not, create a new user
+  try {
+    // Verify the token
+    const ticket = await client.verifyIdToken({
+      idToken: token,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+
+    const payload = ticket.getPayload();
+    const userId = payload.sub; // Google user ID
+    const username = payload.name;
+
+    // Check if user already exists
+    const existingUser = await db.execute("SELECT * FROM users WHERE id = ?", [
+      userId,
+    ]);
+    if (existingUser.rows.length === 0) {
+      // Insert new user if doesn't exist
       await db.execute("INSERT INTO users (id, username) VALUES (?, ?)", [
-        profile.id,
-        profile.username,
+        userId,
+        username,
       ]);
-      done(null, newUser);
     }
-  )
-);
 
-passport.serializeUser((user, done) => {
-  done(null, user.id);
-});
-
-passport.deserializeUser(async (id, done) => {
-  const result = await db.execute("SELECT * FROM users WHERE id = ?", [id]);
-  done(null, result.rows[0]);
-});
-
-// Initiates the Google OAuth 2.0 authentication flow
-router.get(
-  "/google",
-  passport.authenticate("google", { scope: ["profile", "email"] })
-);
-
-// Callback URL for handling the OAuth 2.0 response
-router.get("/google/callback", passport.authenticate("google"), (req, res) => {
-  // Successful authentication, redirect or handle the user as desired
-  // res.redirect("/");
+    // Send user data back to the client
+    res.json({ id: userId, username });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Failed to verify token" });
+  }
 });
 
 module.exports = router;

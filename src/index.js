@@ -3,11 +3,7 @@ require("dotenv").config();
 const express = require("express");
 const bodyParser = require("body-parser");
 const { todosRoutes, authRoutes } = require("./routes");
-const session = require("express-session");
-const passport = require("passport");
-const https = require("https");
-const fs = require("fs");
-const path = require("path");
+const authenticate = require("./middleware/auth");
 
 const { db } = require("./db");
 
@@ -15,24 +11,11 @@ const { db } = require("./db");
   try {
     const app = express();
     const PORT = 3000;
-    app.use(
-      session({
-        secret: "SESSION_SECRET",
-        resave: false,
-        saveUninitialized: false,
-      })
-    );
 
-    app.use(passport.initialize());
-    app.use(passport.session());
     app.use(bodyParser.json());
 
     app.use("/auth", authRoutes);
-    app.use(
-      "/todo",
-      passport.authenticate("google", { session: true }),
-      todosRoutes
-    );
+    app.use("/todos", authenticate, todosRoutes);
 
     await db.batch(
       [
@@ -59,21 +42,8 @@ const { db } = require("./db");
     const rs = await db.execute("SELECT * FROM todos");
     console.log("Todos", rs);
 
-    // app.listen(PORT, () => {
-    //   console.log(`Server is running on port ${PORT}`);
-    // });
-
-    // Read SSL certificate and key files
-    const options = {
-      key: fs.readFileSync(path.join(__dirname, "localhost-key.pem")),
-      cert: fs.readFileSync(path.join(__dirname, "localhost.pem")),
-    };
-
-    // Create HTTPS server
-    const server = https.createServer(options, app);
-
-    server.listen(PORT, () => {
-      console.log(`App listening on https://localhost:${PORT}`);
+    app.listen(PORT, () => {
+      console.log(`Server is running on port ${PORT}`);
     });
   } catch (e) {
     console.log("Error", e);

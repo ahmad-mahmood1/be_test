@@ -5,7 +5,7 @@ const db = require("../../db");
 // Create a new todo
 router.post("/", async (req, res) => {
   const { text } = req.body;
-  const userId = req.user.id; // Get user ID from the request
+  const userId = req.userId; // Get user ID from the request
   if (!text) {
     return res.status(400).send("Todo text is required");
   }
@@ -24,7 +24,7 @@ router.post("/", async (req, res) => {
 
 // Get all todos for the logged-in user
 router.get("/", async (req, res) => {
-  const userId = req.user.id; // Get user ID from the request
+  const userId = req.userId; // Get user ID from the request
   try {
     const result = await db.execute("SELECT * FROM todos WHERE user_id = ?", [
       userId,
@@ -39,7 +39,7 @@ router.get("/", async (req, res) => {
 // Get a single todo by ID for the logged-in user
 router.get("/:id", async (req, res) => {
   const { id } = req.params;
-  const userId = req.user.id; // Get user ID from the request
+  const userId = req.userId; // Get user ID from the request
   try {
     const result = await db.execute(
       "SELECT * FROM todos WHERE id = ? AND user_id = ?",
@@ -59,7 +59,7 @@ router.get("/:id", async (req, res) => {
 router.put("/:id", async (req, res) => {
   const { id } = req.params;
   const { checked } = req.body;
-  const userId = req.user.id; // Get user ID from the request
+  const userId = req.userId; // Get user ID from the request
   if (typeof checked !== "boolean") {
     return res.status(400).send("Invalid parameter");
   }
@@ -83,7 +83,7 @@ router.put("/:id", async (req, res) => {
 router.put("/:id", async (req, res) => {
   const { id } = req.params;
   const { text } = req.body;
-  const userId = req.user.id; // Get user ID from the request
+  const userId = req.userId; // Get user ID from the request
   if (!text) {
     return res.status(400).send("Todo text is required");
   }
@@ -106,7 +106,7 @@ router.put("/:id", async (req, res) => {
 // Delete a todo by ID for the logged-in user
 router.delete("/:id", async (req, res) => {
   const { id } = req.params;
-  const userId = req.user.id; // Get user ID from the request
+  const userId = req.userId; // Get user ID from the request
   try {
     const result = await db.execute(
       "DELETE FROM todos WHERE id = ? AND user_id = ? RETURNING *",
